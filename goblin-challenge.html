@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Défi Armes — The Finals</title>
+<style>
+  :root{
+    --bg: #05070d;
+    --panel: #0b0f1a;
+    --panel-edge: rgba(120,170,255,0.18);
+    --cyan: #4fd8ff;
+    --violet: #9b6bff;
+    --gold: #ffc857;
+    --slate: #4a5568;
+    --slate-dim: #2a3140;
+    --text: #dce6f5;
+    --text-dim: #7b8aa6;
+    --danger: #ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:transparent;font-family: 'Segoe UI', ui-sans-serif, system-ui, Arial, sans-serif; color:var(--text);}
+  body.setup-mode{background:radial-gradient(1200px 600px at 20% 0%, #0d1420 0%, #05070d 60%); min-height:100vh;}
+
+  .app{ display:flex; gap:20px; padding:20px; align-items:flex-start; flex-wrap:wrap; }
+  body.overlay-mode .app{ padding:0; }
+
+  /* ---------- HUD PANEL (le widget lui-même) ---------- */
+  .hud{
+    width: 360px;
+    background: linear-gradient(180deg, rgba(11,15,26,0.92), rgba(6,9,16,0.92));
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 20px 60px rgba(0,0,0,0.5), inset 0 0 40px rgba(79,216,255,0.03);
+    overflow: hidden;
+  }
+  .hud::before{ /* coin haut-gauche façon HUD */
+    content:""; position:absolute; top:0; left:0; width:28px; height:28px;
+    border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); opacity:0.8;
+  }
+  .hud::after{
+    content:""; position:absolute; bottom:0; right:0; width:28px; height:28px;
+    border-bottom:2px solid var(--violet); border-right:2px solid var(--violet); opacity:0.8;
+  }
+  .hud-scan{ position:absolute; inset:0; pointer-events:none; opacity:0.05;
+    background: repeating-linear-gradient(0deg, #fff 0px, transparent 1px, transparent 3px);
+  }
+
+  .hud-head{ padding:16px 18px 12px; border-bottom:1px solid var(--panel-edge); position:relative; }
+  .eyebrow{ font-size:10px; letter-spacing:3px; color:var(--cyan); text-transform:uppercase; font-weight:700; opacity:0.85;}
+  .title{ font-size:19px; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-top:4px;
+    background: linear-gradient(90deg, #fff, var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .rank-badge{ position:absolute; top:14px; right:16px; font-size:11px; font-weight:800; letter-spacing:2px;
+    padding:5px 10px; border-radius:3px; border:1px solid currentColor; text-shadow:0 0 8px currentColor;}
+
+  .progress-wrap{ padding:14px 18px; border-bottom:1px solid var(--panel-edge);}
+  .progress-row{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .progress-num{ font-size:22px; font-weight:800; color:#fff; letter-spacing:0.5px;}
+  .progress-num span{ color:var(--text-dim); font-size:13px; font-weight:600; margin-left:4px;}
+  .progress-label{ font-size:10px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase;}
+  .bar-track{ height:8px; border-radius:4px; background:var(--slate-dim); overflow:hidden; position:relative;}
+  .bar-fill{ height:100%; border-radius:4px; background:linear-gradient(90deg, var(--violet), var(--cyan)); transition:width .5s ease; box-shadow:0 0 12px var(--cyan);}
+  .meta-row{ display:flex; gap:16px; margin-top:10px; font-size:11px; color:var(--text-dim); letter-spacing:0.5px;}
+  .meta-row b{ color:var(--text); font-weight:700;}
+
+  .classes{ padding:10px 10px 14px; max-height:520px; overflow:auto; }
+  .class-block{ margin:8px 8px 4px; }
+  .class-title{ font-size:10px; letter-spacing:2.5px; text-transform:uppercase; font-weight:800; padding:6px 4px 6px; opacity:0.8;}
+  .class-title.light{ color: var(--cyan);}
+  .class-title.medium{ color: var(--violet);}
+  .class-title.heavy{ color: var(--gold);}
+
+  .weapon-row{ display:flex; align-items:center; gap:10px; padding:6px 6px; border-radius:4px; transition:background .3s ease; }
+  .weapon-row.flash{ background: rgba(79,216,255,0.14); }
+  .w-status{ width:20px; height:20px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:11px; }
+  .w-status.won{ background: radial-gradient(circle at 35% 30%, #fff5d0, var(--gold)); color:#3a2a00; box-shadow:0 0 10px var(--gold);}
+  .w-status.pending{ border:1.5px solid var(--slate); color:var(--slate);}
+  .w-name{ flex:1; font-size:13px; font-weight:600; color:var(--text); letter-spacing:0.2px; }
+  .w-name.won-text{ color:#fff; }
+  .w-games{ font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:44px; text-align:right; }
+  .w-games b{ color:var(--text); }
+  .empty-hint{ font-size:12px; color:var(--text-dim); padding:14px; text-align:center;}
+
+  .classes::-webkit-scrollbar{ width:6px; }
+  .classes::-webkit-scrollbar-thumb{ background:var(--slate-dim); border-radius:3px;}
+
+  /* ---------- SETUP PANEL (masqué en mode overlay) ---------- */
+  .setup{ width: 420px; }
+  .card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:8px; padding:16px 18px; margin-bottom:14px;}
+  .card h3{ margin:0 0 10px; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--cyan);}
+  .card p.hint{ font-size:12px; color:var(--text-dim); line-height:1.5; margin:4px 0 10px;}
+  .row{ display:flex; gap:8px; margin-bottom:8px; }
+  input[type=text], select{
+    background:#0a0e18; border:1px solid var(--panel-edge); color:var(--text); border-radius:5px; padding:8px 10px; font-size:13px; flex:1;
+  }
+  button{ background:linear-gradient(135deg, var(--violet), var(--cyan)); border:none; color:#04060b; font-weight:700; font-size:12px;
+    letter-spacing:0.5px; padding:8px 12px; border-radius:5px; cursor:pointer; }
+  button.secondary{ background:var(--slate-dim); color:var(--text); }
+  button.danger{ background:var(--danger); color:#2a0004; }
+  button:disabled{ opacity:0.5; cursor:not-allowed; }
+  .status-line{ font-size:12px; display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--slate);}
+  .dot.ok{ background:#3ddc84; box-shadow:0 0 6px #3ddc84;}
+  .dot.err{ background:var(--danger); box-shadow:0 0 6px var(--danger);}
+  .dot.pending{ background:var(--gold); box-shadow:0 0 6px var(--gold);}
+  code{ background:#0a0e18; padding:2px 6px; border-radius:4px; font-size:12px; color:var(--cyan); }
+  .cmd-list{ font-size:12px; line-height:1.9; color:var(--text-dim); }
+  .cmd-list code{ color:var(--gold); }
+  .wlist{ max-height:260px; overflow:auto; margin-bottom:10px; }
+  .wedit-row{ display:flex; gap:6px; align-items:center; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px;}
+  .wedit-row .name{ flex:1; }
+  .wedit-row .tag{ font-size:9px; padding:2px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:1px;}
+  .tag.light{ background:rgba(79,216,255,0.15); color:var(--cyan);}
+  .tag.medium{ background:rgba(155,107,255,0.15); color:var(--violet);}
+  .tag.heavy{ background:rgba(255,200,87,0.15); color:var(--gold);}
+  .icon-btn{ background:transparent; border:1px solid var(--slate-dim); color:var(--text-dim); padding:3px 7px; font-size:11px; }
+  .footer-note{ font-size:11px; color:var(--text-dim); line-height:1.5; margin-top:6px;}
+  textarea{ width:100%; background:#0a0e18; border:1px solid var(--panel-edge); color:var(--text); border-radius:5px; padding:8px; font-size:11px; font-family:monospace; height:80px; resize:vertical;}
+  .warn{ background:rgba(255,93,108,0.08); border:1px solid rgba(255,93,108,0.3); border-radius:6px; padding:10px 12px; font-size:12px; color:#ffb3ba; margin-top:8px;}
+</style>
+</head>
+<body class="setup-mode">
+<div class="app" id="app">
+
+  <!-- ===== HUD (overlay) ===== -->
+  <div class="hud" id="hud">
+    <div class="hud-scan"></div>
+    <div class="hud-head">
+      <div class="eyebrow">Défi en cours</div>
+      <div class="title">Toutes les armes</div>
+      <div class="rank-badge" id="rankBadge">E-RANK</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-row">
+        <div class="progress-num" id="progressNum">0 <span>/ 0 armes</span></div>
+      </div>
+      <div class="progress-label">Progression du défi</div>
+      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+      <div class="meta-row">
+        <div>Parties jouées&nbsp;<b id="totalGames">0</b></div>
+        <div>Armes restantes&nbsp;<b id="remainingCount">0</b></div>
+      </div>
+    </div>
+    <div class="classes" id="classesWrap"></div>
+  </div>
+
+  <!-- ===== SETUP ===== -->
+  <div class="setup" id="setupPanel">
+    <div class="card">
+      <h3>Connexion Twitch</h3>
+      <p class="hint">Le widget se connecte en lecture au chat de ta chaîne pour écouter les commandes des mods/broadcaster. Aucun token requis (connexion anonyme).</p>
+      <div class="row">
+        <input type="text" id="channelInput" placeholder="nom_de_ta_chaine_twitch">
+        <button id="connectBtn">Connecter</button>
+      </div>
+      <div class="status-line"><span class="dot" id="statusDot"></span><span id="statusText">Non connecté</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Commandes chat (mods / broadcaster uniquement)</h3>
+      <div class="cmd-list">
+        <div><code>!win &lt;arme&gt;</code> — marque l'arme comme gagnée (+1 partie)</div>
+        <div><code>!game &lt;arme&gt;</code> — +1 partie jouée (défaite)</div>
+        <div><code>!unwin &lt;arme&gt;</code> — retire le statut "gagnée"</div>
+        <div><code>!undo &lt;arme&gt;</code> — -1 partie jouée</div>
+        <div><code>!reset &lt;arme&gt;</code> — remet une arme à zéro</div>
+        <div><code>!resetall</code> — remet tout le défi à zéro (à taper 2x pour confirmer)</div>
+      </div>
+      <p class="footer-note">L'argument &lt;arme&gt; peut être le nom complet ou une partie de son nom (ex: <code>!win akm</code>, <code>!win sr84</code>). Insensible à la casse et aux espaces.</p>
+    </div>
+
+    <div class="card">
+      <h3>Arsenal du défi</h3>
+      <p class="hint">Liste par défaut à vérifier / adapter à la saison en cours — les armes changent au fil des mises à jour du jeu.</p>
+      <div class="wlist" id="weaponEditList"></div>
+      <div class="row">
+        <input type="text" id="newWeaponName" placeholder="Nom de l'arme">
+        <select id="newWeaponClass">
+          <option value="light">Light</option>
+          <option value="medium">Medium</option>
+          <option value="heavy">Heavy</option>
+        </select>
+        <button id="addWeaponBtn">Ajouter</button>
+      </div>
+      <div class="row">
+        <button class="secondary" id="testWinBtn">Test: gagner une arme au hasard</button>
+        <button class="danger" id="resetAllBtn">Tout réinitialiser</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Utilisation dans OBS</h3>
+      <p class="hint">Ajoute une source <b>Navigateur</b> pointant vers le lien publié de ce widget, en ajoutant <code>?overlay=1</code> à la fin de l'URL (fond transparent, sans panneau de configuration). Largeur ~380px, hauteur ~600px.</p>
+    </div>
+
+    <div class="card">
+      <h3>Sauvegarde manuelle</h3>
+      <p class="hint">La progression tente de se sauvegarder automatiquement. Dans certains contextes (source navigateur OBS non connectée à ton compte), la sauvegarde auto peut échouer — utilise l'export ci-dessous comme filet de sécurité de temps en temps.</p>
+      <div class="row">
+        <button class="secondary" id="exportBtn">Exporter</button>
+        <button class="secondary" id="importBtn">Importer</button>
+      </div>
+      <textarea id="exportArea" placeholder="Le JSON de sauvegarde apparaît ici..."></textarea>
+      <div id="storageWarn"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const DEFAULT_WEAPONS = [
+    ["XP-54","light"],["SR-84","light"],["ARN-220","light"],["SH1900","light"],
+    ["Throwing Knives","light"],["V9S","light"],["M11","light"],["LH1","light"],
+    ["Dagger","light"],["Recurve Bow","light"],["Sword","light"],
+    ["AKM","medium"],["FCAR","medium"],["Model 1887","medium"],["CL-40","medium"],
+    ["Riot Shield","medium"],["Dual Blades","medium"],["Pike-556","medium"],["CB-01-Repeater","medium"],
+    ["SA1216","heavy"],["M60","heavy"],["Lewis Gun","heavy"],["Spear","heavy"],
+    ["KS-23","heavy"],["Sledgehammer","heavy"],["ShAK-50","heavy"],["Flamethrower","heavy"],["Cerberus 12GA","heavy"]
+  ];
+
+  let state = {
+    channel: "",
+    weapons: DEFAULT_WEAPONS.map(([name,cls],i)=>({id:"w"+i+"_"+slug(name), name, cls, won:false, games:0}))
+  };
+
+  function slug(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,""); }
+
+  const params = new URLSearchParams(location.search);
+  const overlayMode = params.get("overlay") === "1";
+  if(overlayMode){ document.body.classList.remove("setup-mode"); document.body.classList.add("overlay-mode"); document.getElementById("setupPanel").style.display="none"; }
+
+  const STORAGE_KEY = "defi-armes-the-finals";
+  async function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){ showStorageWarn(); }
+  }
+  async function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && Array.isArray(parsed.weapons)) state = parsed;
+      }
+    }catch(e){ showStorageWarn(); }
+    render();
+  }
+  function showStorageWarn(){
+    const el = document.getElementById("storageWarn");
+    if(el && !overlayMode) el.innerHTML = '<div class="warn">La sauvegarde automatique ne fonctionne pas dans ce navigateur (stockage local bloqué). Pense à utiliser Exporter / Importer manuellement.</div>';
+  }
+
+  // ---------- UI: HUD ----------
+  function rankFor(pct){
+    if(pct>=100) return ["S-RANK","#ffc857"];
+    if(pct>=75) return ["A-RANK","#4fd8ff"];
+    if(pct>=50) return ["B-RANK","#9b6bff"];
+    if(pct>=25) return ["C-RANK","#8fb3ff"];
+    if(pct>0) return ["D-RANK","#7b8aa6"];
+    return ["E-RANK","#4a5568"];
+  }
+
+  function render(flashId){
+    const total = state.weapons.length;
+    const won = state.weapons.filter(w=>w.won).length;
+    const totalGames = state.weapons.reduce((a,w)=>a+w.games,0);
+    const pct = total ? Math.round((won/total)*100) : 0;
+
+    document.getElementById("progressNum").innerHTML = won + ' <span>/ '+total+' armes</span>';
+    document.getElementById("barFill").style.width = pct+"%";
+    document.getElementById("totalGames").textContent = totalGames;
+    document.getElementById("remainingCount").textContent = (total-won);
+    const [rankLabel, rankColor] = rankFor(pct);
+    const rb = document.getElementById("rankBadge");
+    rb.textContent = rankLabel; rb.style.color = rankColor;
+
+    const wrap = document.getElementById("classesWrap");
+    wrap.innerHTML = "";
+    const order = ["light","medium","heavy"];
+    const labels = {light:"Light", medium:"Medium", heavy:"Heavy"};
+    if(total===0){
+      wrap.innerHTML = '<div class="empty-hint">Ajoute des armes dans le panneau de configuration</div>';
+    }
+    order.forEach(cls=>{
+      const list = state.weapons.filter(w=>w.cls===cls);
+      if(!list.length) return;
+      const block = document.createElement("div");
+      block.className = "class-block";
+      block.innerHTML = '<div class="class-title '+cls+'">'+labels[cls]+'</div>';
+      list.forEach(w=>{
+        const row = document.createElement("div");
+        row.className = "weapon-row" + (w.id===flashId ? " flash" : "");
+        row.innerHTML = '<div class="w-status '+(w.won?"won":"pending")+'">'+(w.won?"★":"")+'</div>'+
+          '<div class="w-name '+(w.won?"won-text":"")+'">'+escapeHtml(w.name)+'</div>'+
+          '<div class="w-games">'+w.games+' <b>partie'+(w.games>1?"s":"")+'</b></div>';
+        block.appendChild(row);
+      });
+      wrap.appendChild(block);
+    });
+    if(flashId){ setTimeout(()=>render(), 1800); }
+    renderEditList();
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  function renderEditList(){
+    if(overlayMode) return;
+    const el = document.getElementById("weaponEditList");
+    el.innerHTML = "";
+    state.weapons.forEach(w=>{
+      const row = document.createElement("div");
+      row.className = "wedit-row";
+      row.innerHTML = '<span class="tag '+w.cls+'">'+w.cls+'</span>'+
+        '<span class="name">'+escapeHtml(w.name)+'</span>'+
+        '<span>'+w.games+' pj</span>'+
+        '<button class="icon-btn" data-act="win" data-id="'+w.id+'">🏆</button>'+
+        '<button class="icon-btn" data-act="del" data-id="'+w.id+'">✕</button>';
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById("weaponEditList") && document.getElementById("weaponEditList").addEventListener("click", (e)=>{
+    const btn = e.target.closest("button"); if(!btn) return;
+    const id = btn.dataset.id, act = btn.dataset.act;
+    const w = state.weapons.find(x=>x.id===id); if(!w) return;
+    if(act==="win"){ w.won = true; w.games += 1; }
+    if(act==="del"){ state.weapons = state.weapons.filter(x=>x.id!==id); }
+    saveState(); render(id);
+  });
+
+  document.getElementById("addWeaponBtn") && document.getElementById("addWeaponBtn").addEventListener("click", ()=>{
+    const nameInput = document.getElementById("newWeaponName");
+    const clsInput = document.getElementById("newWeaponClass");
+    const name = nameInput.value.trim();
+    if(!name) return;
+    state.weapons.push({id:"w"+Date.now()+"_"+slug(name), name, cls:clsInput.value, won:false, games:0});
+    nameInput.value = "";
+    saveState(); render();
+  });
+
+  document.getElementById("testWinBtn") && document.getElementById("testWinBtn").addEventListener("click", ()=>{
+    const pending = state.weapons.filter(w=>!w.won);
+    if(!pending.length) return;
+    const w = pending[Math.floor(Math.random()*pending.length)];
+    w.won = true; w.games += 1;
+    saveState(); render(w.id);
+  });
+
+  document.getElementById("resetAllBtn") && document.getElementById("resetAllBtn").addEventListener("click", ()=>{
+    if(!confirm("Réinitialiser toute la progression du défi ?")) return;
+    state.weapons.forEach(w=>{ w.won=false; w.games=0; });
+    saveState(); render();
+  });
+
+  document.getElementById("exportBtn") && document.getElementById("exportBtn").addEventListener("click", ()=>{
+    document.getElementById("exportArea").value = JSON.stringify(state, null, 2);
+  });
+  document.getElementById("importBtn") && document.getElementById("importBtn").addEventListener("click", ()=>{
+    try{
+      const parsed = JSON.parse(document.getElementById("exportArea").value);
+      if(parsed && Array.isArray(parsed.weapons)){ state = parsed; saveState(); render(); }
+    }catch(e){ alert("JSON invalide"); }
+  });
+
+  // ---------- Twitch IRC (lecture anonyme) ----------
+  let ws = null, reconnectDelay = 2000, pendingResetAll = null;
+  function setStatus(kind, text){
+    const dot = document.getElementById("statusDot"); const t = document.getElementById("statusText");
+    if(!dot) return;
+    dot.className = "dot" + (kind ? " "+kind : "");
+    t.textContent = text;
+  }
+
+  function connectTwitch(channel){
+    if(!channel) return;
+    state.channel = channel.toLowerCase().replace(/^#/,"");
+    if(ws){ try{ ws.close(); }catch(e){} }
+    setStatus("pending","Connexion...");
+    ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+    ws.onopen = ()=>{
+      const nick = "justinfan" + Math.floor(10000+Math.random()*89999);
+      ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+      ws.send("PASS SCHMOOPIIE");
+      ws.send("NICK "+nick);
+      ws.send("JOIN #"+state.channel);
+    };
+    ws.onmessage = (ev)=>{
+      ev.data.split("\r\n").filter(Boolean).forEach(handleLine);
+    };
+    ws.onclose = ()=>{
+      setStatus("err","Déconnecté — nouvelle tentative...");
+      setTimeout(()=>connectTwitch(state.channel), reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay*1.6, 30000);
+    };
+    ws.onerror = ()=>{ setStatus("err","Erreur de connexion"); };
+  }
+
+  function handleLine(line){
+    if(line.startsWith("PING")){ ws.send("PONG :tmi.twitch.tv"); return; }
+    if(line.includes(" 001 ")){ setStatus("ok","Connecté à #"+state.channel); reconnectDelay=2000; return; }
+    if(line.includes("PRIVMSG")){
+      const tags = {};
+      let rest = line;
+      if(line.startsWith("@")){
+        const sp = line.indexOf(" ");
+        line.slice(1, sp).split(";").forEach(kv=>{
+          const [k,v] = kv.split("="); tags[k]=v;
+        });
+        rest = line.slice(sp+1);
+      }
+      const msgIdx = rest.indexOf(" PRIVMSG ");
+      if(msgIdx === -1) return;
+      const colonIdx = rest.indexOf(" :", msgIdx);
+      if(colonIdx === -1) return;
+      const message = rest.slice(colonIdx+2);
+      const badges = tags.badges || "";
+      const isPrivileged = badges.includes("broadcaster") || badges.includes("moderator");
+      if(isPrivileged && message.startsWith("!")) handleCommand(message.trim());
+    }
+  }
+
+  function findWeapon(argRaw){
+    const arg = slug(argRaw);
+    if(!arg) return null;
+    let w = state.weapons.find(x=>slug(x.name)===arg);
+    if(w) return w;
+    w = state.weapons.find(x=>slug(x.name).startsWith(arg));
+    if(w) return w;
+    w = state.weapons.find(x=>slug(x.name).includes(arg));
+    return w || null;
+  }
+
+  function handleCommand(msg){
+    const parts = msg.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const arg = parts.slice(1).join(" ");
+
+    if(cmd === "!resetall"){
+      if(pendingResetAll && (Date.now()-pendingResetAll) < 20000){
+        state.weapons.forEach(w=>{ w.won=false; w.games=0; });
+        pendingResetAll = null;
+        saveState(); render();
+      } else {
+        pendingResetAll = Date.now();
+      }
+      return;
+    }
+
+    const w = findWeapon(arg);
+    if(!w) return;
+
+    if(cmd === "!win"){ w.won = true; w.games += 1; }
+    else if(cmd === "!game"){ w.games += 1; }
+    else if(cmd === "!unwin"){ w.won = false; }
+    else if(cmd === "!undo"){ w.games = Math.max(0, w.games-1); }
+    else if(cmd === "!reset"){ w.won = false; w.games = 0; }
+    else return;
+
+    saveState(); render(w.id);
+  }
+
+  document.getElementById("connectBtn") && document.getElementById("connectBtn").addEventListener("click", ()=>{
+    const ch = document.getElementById("channelInput").value.trim();
+    if(ch){ saveState(); connectTwitch(ch); }
+  });
+
+  // ---------- init ----------
+  loadState().then(()=>{
+    if(document.getElementById("channelInput")) document.getElementById("channelInput").value = state.channel || "";
+    if(state.channel) connectTwitch(state.channel);
+    render();
+  });
+})();
+</script>
+</body>
+</html>
