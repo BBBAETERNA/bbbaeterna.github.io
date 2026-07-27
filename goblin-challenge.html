@@ -26,7 +26,7 @@
 
   /* ---------- HUD PANEL (le widget lui-même) ---------- */
   .hud{
-    width: 360px;
+    width: 760px;
     background: linear-gradient(180deg, rgba(11,15,26,0.92), rgba(6,9,16,0.92));
     border: 1px solid var(--panel-edge);
     border-radius: 4px;
@@ -63,8 +63,9 @@
   .meta-row{ display:flex; gap:16px; margin-top:10px; font-size:11px; color:var(--text-dim); letter-spacing:0.5px;}
   .meta-row b{ color:var(--text); font-weight:700;}
 
-  .classes{ padding:10px 10px 14px; max-height:520px; overflow:auto; }
-  .class-block{ margin:8px 8px 4px; }
+  .classes{ display:flex; flex-direction:row; align-items:flex-start; padding:12px 10px 16px; gap:2px; }
+  .class-block{ flex:1 1 0; min-width:130px; padding:0 8px; border-right:1px solid rgba(255,255,255,0.06); }
+  .class-block:last-child{ border-right:none; }
   .class-title{ font-size:10px; letter-spacing:2.5px; text-transform:uppercase; font-weight:800; padding:6px 4px 6px; opacity:0.8;}
 
   .current-wrap{ padding:12px 18px; border-bottom:1px solid var(--panel-edge); }
@@ -74,22 +75,21 @@
   .current-name{ font-size:14px; font-weight:800; color:#fff; letter-spacing:0.3px;}
   .current-games{ font-size:12px; color:var(--gold); font-weight:700; white-space:nowrap; margin-left:10px;}
 
-  .weapon-row{ display:flex; align-items:center; gap:10px; padding:6px 6px; border-radius:4px; transition:background .3s ease; }
+  .weapon-row{ display:flex; align-items:center; gap:8px; padding:4px 2px; border-radius:4px; transition:background .3s ease; }
   .weapon-row.flash{ background: rgba(79,216,255,0.14); }
-  .w-status{ width:20px; height:20px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:11px; }
-  .w-status.won{ background: radial-gradient(circle at 35% 30%, #fff5d0, var(--gold)); color:#3a2a00; box-shadow:0 0 10px var(--gold);}
+  .w-status{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:9px; }
+  .w-status.won{ background: radial-gradient(circle at 35% 30%, #fff5d0, var(--gold)); color:#3a2a00; box-shadow:0 0 8px var(--gold);}
   .w-status.pending{ border:1.5px solid var(--slate); color:var(--slate);}
-  .w-name{ flex:1; font-size:13px; font-weight:600; color:var(--text); letter-spacing:0.2px; }
+  .w-name{ flex:1; font-size:12px; font-weight:600; color:var(--text); letter-spacing:0.2px; line-height:1.25; }
   .w-name.won-text{ color:#fff; }
-  .w-games{ font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:44px; text-align:right; }
+  .w-games{ font-size:10px; color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:34px; text-align:right; }
   .w-games b{ color:var(--text); }
   .empty-hint{ font-size:12px; color:var(--text-dim); padding:14px; text-align:center;}
 
-  .classes::-webkit-scrollbar{ width:6px; }
-  .classes::-webkit-scrollbar-thumb{ background:var(--slate-dim); border-radius:3px;}
-
   /* ---------- SETUP PANEL (masqué en mode overlay) ---------- */
-  .setup{ width: 420px; }
+  .setup{ width: 760px; }
+  .two-col{ display:flex; gap:14px; align-items:flex-start; }
+  .two-col .card{ flex:1; min-width:0; }
   .card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:8px; padding:16px 18px; margin-bottom:14px;}
   .card h3{ margin:0 0 10px; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--cyan);}
   .card p.hint{ font-size:12px; color:var(--text-dim); line-height:1.5; margin:4px 0 10px;}
@@ -181,28 +181,30 @@
       <p class="footer-note">L'argument &lt;arme&gt; peut être le nom complet ou une partie de son nom (ex: <code>!win akm</code>, <code>!win sr84</code>). Insensible à la casse et aux espaces.</p>
     </div>
 
-    <div class="card">
-      <h3>Classes</h3>
-      <p class="hint">Renomme les classes comme tu veux (ex: "Léger/Moyen/Lourd", ou complètement autre chose). Chaque arme de l'arsenal appartient à l'une d'elles.</p>
-      <div id="classEditList"></div>
-      <div class="row">
-        <input type="text" id="newClassName" placeholder="Nom de la nouvelle classe">
-        <button id="addClassBtn">Ajouter</button>
+    <div class="two-col">
+      <div class="card">
+        <h3>Classes</h3>
+        <p class="hint">Renomme les classes comme tu veux (ex: "Léger/Moyen/Lourd", ou complètement autre chose). Chaque arme de l'arsenal appartient à l'une d'elles.</p>
+        <div id="classEditList"></div>
+        <div class="row">
+          <input type="text" id="newClassName" placeholder="Nom de la nouvelle classe">
+          <button id="addClassBtn">Ajouter</button>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h3>Arsenal du défi</h3>
-      <p class="hint">Liste par défaut à vérifier / adapter à la saison en cours — les armes changent au fil des mises à jour du jeu.</p>
-      <div class="wlist" id="weaponEditList"></div>
-      <div class="row">
-        <input type="text" id="newWeaponName" placeholder="Nom de l'arme">
-        <select id="newWeaponClass"></select>
-        <button id="addWeaponBtn">Ajouter</button>
-      </div>
-      <div class="row">
-        <button class="secondary" id="testWinBtn">Test: gagner une arme au hasard</button>
-        <button class="danger" id="resetAllBtn">Tout réinitialiser</button>
+      <div class="card">
+        <h3>Arsenal du défi</h3>
+        <p class="hint">Liste par défaut à vérifier / adapter à la saison en cours — les armes changent au fil des mises à jour du jeu.</p>
+        <div class="wlist" id="weaponEditList"></div>
+        <div class="row">
+          <input type="text" id="newWeaponName" placeholder="Nom de l'arme">
+          <select id="newWeaponClass"></select>
+          <button id="addWeaponBtn">Ajouter</button>
+        </div>
+        <div class="row">
+          <button class="secondary" id="testWinBtn">Test</button>
+          <button class="danger" id="resetAllBtn">Tout réinitialiser</button>
+        </div>
       </div>
     </div>
 
@@ -302,6 +304,9 @@
   }
 
   function render(flashId){
+    const hudEl = document.getElementById("hud");
+    hudEl.style.width = Math.max(420, state.classes.length*190 + 40) + "px";
+
     const total = state.weapons.length;
     const won = state.weapons.filter(w=>w.won).length;
     const totalGames = state.weapons.reduce((a,w)=>a+w.games,0);
