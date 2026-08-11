@@ -40,7 +40,6 @@
       inset 0 0 0 1px rgba(0,0,0,0.25),
       inset 0 0 60px rgba(60,40,10,0.25);
     color:var(--ink);
-    filter: url(#grain);
   }
   .poster::before{
     content:"";
@@ -140,22 +139,18 @@
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute">
-  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter>
-</svg>
-
 <div id="dbg"><span class="dot" id="dbgdot" style="background:#c0392b"></span><span id="dbgtext">déconnecté</span></div>
 
 <div id="stage">
   <div class="poster">
     <div class="tack l"></div><div class="tack r"></div>
     <div class="stamp" id="stamp">SESSION<br>EN COURS</div>
-    <h1>RECHERCHÉ</h1>
-    <div class="sub">Chasseur — Louisiane, 1896</div>
+    <h1>WANTED</h1>
+    <div class="sub">BBB — lieu inconnu, 1896</div>
     <div class="rule"></div>
     <div class="rows" id="rows"></div>
     <div class="rule rule2"></div>
-    <div class="total"><span>TOTAL ÉLIMINATIONS</span><span id="totalnum">0</span></div>
+    <div class="total"><span>TOTAL KILLS</span><span id="totalnum">0</span></div>
     <div class="footer">
       <span>Boss tués <b id="bossnum">0</b></span>
       <span>Extractions <b id="extractnum">0</b></span>
