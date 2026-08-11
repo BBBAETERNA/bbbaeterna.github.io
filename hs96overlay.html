@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Hunt Showdown — Overlay Recherché</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#e6d8b8;
+    --paper-dark:#d3bd8e;
+    --ink:#2a2015;
+    --ink-soft:#4a3b28;
+    --ember:#a8391c;
+    --gold:#8a6a1f;
+    --burn:#1c1208;
+  }
+  html,body{
+    margin:0; padding:0;
+    background:transparent;
+    width:100%; height:100%;
+    overflow:hidden;
+    font-family:'Special Elite', monospace;
+  }
+  #stage{
+    position:absolute; top:32px; left:32px;
+  }
+  .poster{
+    position:relative;
+    width:340px;
+    padding:26px 28px 22px;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(0,0,0,0.18), transparent 40%),
+      radial-gradient(circle at 90% 95%, rgba(0,0,0,0.22), transparent 45%),
+      linear-gradient(135deg, var(--paper) 0%, var(--paper-dark) 100%);
+    background-blend-mode:multiply, multiply, normal;
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.15),
+      0 18px 40px rgba(0,0,0,0.55),
+      inset 0 0 0 1px rgba(0,0,0,0.25),
+      inset 0 0 60px rgba(60,40,10,0.25);
+    color:var(--ink);
+    filter: url(#grain);
+  }
+  .poster::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    pointer-events:none;
+    mix-blend-mode:multiply;
+    opacity:0.5;
+  }
+  .tack{
+    position:absolute; top:-9px; width:14px; height:14px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #6b5433, #2a1f0f 70%);
+    box-shadow:0 3px 4px rgba(0,0,0,0.5);
+  }
+  .tack.l{left:22px;} .tack.r{right:22px;}
+
+  .stamp{
+    position:absolute; top:-14px; right:-14px;
+    width:78px; height:78px;
+    border:2px dashed var(--ember);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    transform:rotate(12deg);
+    color:var(--ember);
+    text-align:center;
+    font-size:9.5px;
+    letter-spacing:0.5px;
+    line-height:1.15;
+    padding:6px;
+    mix-blend-mode:multiply;
+    opacity:0.9;
+    font-family:'Special Elite', monospace;
+    text-transform:uppercase;
+  }
+
+  h1{
+    margin:0 0 4px;
+    text-align:center;
+    font-family:'Rye', serif;
+    font-size:40px;
+    letter-spacing:2px;
+    color:var(--ink);
+    text-shadow:1px 1px 0 rgba(255,255,255,0.15);
+  }
+  .sub{
+    text-align:center;
+    font-size:10px;
+    letter-spacing:3px;
+    color:var(--ink-soft);
+    margin-bottom:14px;
+    text-transform:uppercase;
+  }
+  .rule{
+    height:3px;
+    background:
+      repeating-linear-gradient(90deg, var(--ink) 0 6px, transparent 6px 9px);
+    opacity:0.55;
+    margin:8px 0 12px;
+  }
+  .rows{ display:flex; flex-direction:column; gap:7px; }
+  .row{
+    display:flex; align-items:baseline; justify-content:space-between;
+    font-size:16px;
+  }
+  .row .label{
+    display:flex; align-items:center; gap:6px;
+  }
+  .row .leader{
+    flex:1; border-bottom:1px dotted rgba(42,32,21,0.35);
+    margin:0 6px; transform:translateY(-3px);
+  }
+  .row .num{ font-weight:bold; min-width:18px; text-align:right; }
+  .skull{ font-size:12px; opacity:0.85; }
+
+  .rule2{ margin:14px 0 10px; }
+
+  .total{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:19px; font-weight:bold; letter-spacing:0.5px;
+  }
+  .footer{
+    display:flex; justify-content:space-between;
+    margin-top:12px; padding-top:10px;
+    border-top:1px solid rgba(42,32,21,0.35);
+    font-size:12px; color:var(--ink-soft);
+  }
+  .footer b{ color:var(--ink); }
+
+  #dbg{
+    position:absolute; top:6px; left:6px;
+    font:11px monospace; color:#fff; background:rgba(0,0,0,0.6);
+    padding:4px 8px; border-radius:4px; display:none;
+  }
+  #dbg.show{ display:block; }
+  #dbg .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter>
+</svg>
+
+<div id="dbg"><span class="dot" id="dbgdot" style="background:#c0392b"></span><span id="dbgtext">déconnecté</span></div>
+
+<div id="stage">
+  <div class="poster">
+    <div class="tack l"></div><div class="tack r"></div>
+    <div class="stamp" id="stamp">SESSION<br>EN COURS</div>
+    <h1>RECHERCHÉ</h1>
+    <div class="sub">Chasseur — Louisiane, 1896</div>
+    <div class="rule"></div>
+    <div class="rows" id="rows"></div>
+    <div class="rule rule2"></div>
+    <div class="total"><span>TOTAL ÉLIMINATIONS</span><span id="totalnum">0</span></div>
+    <div class="footer">
+      <span>Boss tués <b id="bossnum">0</b></span>
+      <span>Extractions <b id="extractnum">0</b></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const CHANNEL = (params.get('channel')||'').toLowerCase().trim();
+const DEBUG = params.has('debug');
+const EXTRA_ADMINS = (params.get('mods')||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+
+if(DEBUG) document.getElementById('dbg').classList.add('show');
+
+const TYPES = ['arc','carabine','pompe','pistolet','melee','explosif'];
+const LABELS = {arc:'Arc',carabine:'Carabine',pompe:'Fusil à pompe',pistolet:'Pistolet',melee:'Corps à corps',explosif:'Explosifs'};
+
+const LOG_KEY = 'huntstats_log_'+CHANNEL;
+const SESSION_KEY = 'huntstats_session_'+CHANNEL;
+const PERIOD_KEY = 'huntstats_period_'+CHANNEL;
+
+const PERIODS = ['session','semaine','mois','total'];
+const PERIOD_LABELS = {session:'SESSION<br>EN COURS', semaine:'CETTE<br>SEMAINE', mois:'CE MOIS<br>-CI', total:'DEPUIS<br>TOUJOURS'};
+
+function loadLog(){ try{ return JSON.parse(localStorage.getItem(LOG_KEY)) || []; }catch(e){ return []; } }
+function saveLog(l){ localStorage.setItem(LOG_KEY, JSON.stringify(l)); }
+function getSessionStart(){
+  let s = Number(localStorage.getItem(SESSION_KEY));
+  if(!s){ s = Date.now(); localStorage.setItem(SESSION_KEY, s); }
+  return s;
+}
+function getPeriod(){ return localStorage.getItem(PERIOD_KEY) || 'session'; }
+function setPeriod(p){ localStorage.setItem(PERIOD_KEY, p); }
+
+function addEvent(type){ const l=loadLog(); l.push({t:type, ts:Date.now()}); saveLog(l); render(); }
+function undo(){ const l=loadLog(); l.pop(); saveLog(l); render(); }
+function resetSession(){ localStorage.setItem(SESSION_KEY, Date.now()); render(); }
+function resetAll(){ saveLog([]); localStorage.setItem(SESSION_KEY, Date.now()); render(); }
+function cyclePeriod(){ const cur=getPeriod(); const i=PERIODS.indexOf(cur); setPeriod(PERIODS[(i+1)%PERIODS.length]); render(); }
+
+function filteredLog(){
+  const period = getPeriod();
+  const log = loadLog();
+  const now = Date.now();
+  if(period==='session'){ const s=getSessionStart(); return log.filter(e=>e.ts>=s); }
+  if(period==='semaine'){ return log.filter(e=>e.ts>=now-7*86400000); }
+  if(period==='mois'){ return log.filter(e=>e.ts>=now-30*86400000); }
+  return log;
+}
+
+function render(){
+  const events = filteredLog();
+  const counts = {}; TYPES.forEach(t=>counts[t]=0);
+  let boss=0, extract=0;
+  events.forEach(e=>{
+    if(TYPES.includes(e.t)) counts[e.t]++;
+    else if(e.t==='boss') boss++;
+    else if(e.t==='extract') extract++;
+  });
+  const total = TYPES.reduce((s,t)=>s+counts[t],0);
+  let topType=null, topCount=0;
+  TYPES.forEach(t=>{ if(counts[t]>topCount){ topCount=counts[t]; topType=t; } });
+
+  document.getElementById('rows').innerHTML = TYPES.map(t=>`
+    <div class="row">
+      <span class="label">${LABELS[t]}${t===topType?'<span class="skull">☠</span>':''}</span>
+      <span class="leader"></span>
+      <span class="num">${counts[t]}</span>
+    </div>`).join('');
+  document.getElementById('totalnum').textContent = total;
+  document.getElementById('bossnum').textContent = boss;
+  document.getElementById('extractnum').textContent = extract;
+  document.getElementById('stamp').innerHTML = PERIOD_LABELS[getPeriod()];
+}
+
+// --- Twitch IRC (lecture anonyme) ---
+let ws, retry=1000;
+function setDbg(text, ok){
+  if(!DEBUG) return;
+  document.getElementById('dbgtext').textContent = text;
+  document.getElementById('dbgdot').style.background = ok ? '#2e9e4a' : '#c0392b';
+}
+function connect(){
+  if(!CHANNEL){ setDbg('paramètre ?channel= manquant', false); return; }
+  ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+  ws.onopen = () => {
+    ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+    ws.send('NICK justinfan'+Math.floor(Math.random()*90000+10000));
+    ws.send('JOIN #'+CHANNEL);
+    setDbg('connecté à #'+CHANNEL, true);
+    retry = 1000;
+  };
+  ws.onmessage = (evt) => {
+    evt.data.split('\r\n').filter(Boolean).forEach(line=>{
+      if(line.startsWith('PING')){ ws.send('PONG :tmi.twitch.tv'); return; }
+      if(line.includes('PRIVMSG')) handlePrivmsg(line);
+    });
+  };
+  ws.onclose = () => { setDbg('déconnecté, nouvelle tentative…', false); setTimeout(connect, retry); retry = Math.min(retry*1.5, 15000); };
+  ws.onerror = () => { ws.close(); };
+}
+function handlePrivmsg(line){
+  let rest = line;
+  if(line.startsWith('@')){ const sp = line.indexOf(' '); rest = line.slice(sp+1); }
+  const m = rest.match(/^:(\w+)!\w+@\S+ PRIVMSG #(\w+) :(.*)$/);
+  if(!m) return;
+  const username = m[1].toLowerCase();
+  const message = m[3].trim().toLowerCase();
+  const authorized = username===CHANNEL || EXTRA_ADMINS.includes(username);
+  if(!authorized) return;
+  if(!message.startsWith('!')) return;
+  const c = message.slice(1);
+  if(TYPES.includes(c) || c==='boss' || c==='extract') addEvent(c);
+  else if(c==='undo') undo();
+  else if(c==='resetsession') resetSession();
+  else if(c==='resetall') resetAll();
+  else if(c==='periode') cyclePeriod();
+  if(DEBUG) setDbg('reçu: !'+c, true);
+}
+
+render();
+connect();
+</script>
+</body>
+</html>
