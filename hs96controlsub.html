@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Hunt Showdown — Panel de contrôle</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#2a2015; --paper:#e6d8b8; --ember:#a8391c; --ok:#2e9e4a; --bad:#c0392b; }
+  body{
+    margin:0; padding:24px; min-height:100vh; box-sizing:border-box;
+    background:#161109; color:var(--paper);
+    font-family:'Special Elite', monospace;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+  }
+  h1{ font-size:20px; letter-spacing:2px; text-transform:uppercase; margin:0; }
+  .status{ font-size:12px; opacity:0.8; }
+  .status .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--bad); }
+  .status.ok .dot{ background:var(--ok); }
+
+  fieldset{
+    border:1px solid #4a3b28; border-radius:8px; padding:14px 16px;
+    width:320px; max-width:90vw;
+  }
+  legend{ padding:0 6px; font-size:11px; letter-spacing:1px; opacity:0.8; }
+  label{ display:block; font-size:11px; margin-top:8px; opacity:0.75; }
+  input{
+    width:100%; box-sizing:border-box; margin-top:3px;
+    background:#231a10; border:1px solid #4a3b28; color:var(--paper);
+    padding:7px 8px; border-radius:5px; font-family:inherit; font-size:13px;
+  }
+  .save{
+    margin-top:12px; width:100%; padding:9px; border:none; border-radius:5px;
+    background:var(--ember); color:#fff; font-family:inherit; font-size:12px;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+  }
+  small.hint{ display:block; margin-top:8px; font-size:10.5px; opacity:0.6; line-height:1.4; }
+  small.hint a{ color:#e2b26b; }
+
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; width:340px; max-width:90vw; }
+  .btn{
+    position:relative;
+    padding:14px 10px; border-radius:8px; border:1px solid #4a3b28;
+    background:linear-gradient(135deg,#2a2015,#1c150c);
+    color:var(--paper); font-family:inherit; font-size:14px; cursor:pointer;
+    text-align:left;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn .key{
+    position:absolute; top:6px; right:8px; font-size:10px; opacity:0.55;
+    border:1px solid #4a3b28; border-radius:3px; padding:1px 5px;
+  }
+  .row2{ display:flex; gap:10px; width:340px; max-width:90vw; }
+  .row2 .btn{ flex:1; text-align:center; }
+  .danger{ border-color:var(--ember); color:#f0c6a8; }
+
+  #log{
+    width:340px; max-width:90vw; height:90px; overflow-y:auto;
+    background:#0f0b06; border:1px solid #4a3b28; border-radius:6px;
+    font-size:11px; padding:8px; opacity:0.85;
+  }
+  #log div{ margin-bottom:3px; }
+</style>
+</head>
+<body>
+
+<h1>Panel de contrôle</h1>
+<div class="status" id="status"><span class="dot"></span><span id="statustext">non configuré</span></div>
+
+<fieldset>
+  <legend>Connexion Twitch</legend>
+  <label>Chaîne</label>
+  <input id="cfgChannel" placeholder="nom de ta chaîne">
+  <label>Nom d'utilisateur du compte lié au token</label>
+  <input id="cfgUsername" placeholder="souvent le même que la chaîne">
+  <label>Token OAuth (scopes chat:read + chat:edit)</label>
+  <input id="cfgToken" type="password" placeholder="oauth:xxxxxxxx">
+  <button class="save" id="saveBtn">Enregistrer &amp; connecter</button>
+  <small class="hint">Génère un token sur twitchtokengenerator.com (préréglage "Bot Chat Token"), scopes chat:read + chat:edit. Garde cette page privée : le token permet d'écrire dans ton chat.</small>
+</fieldset>
+
+<div class="grid" id="grid"></div>
+
+<div class="row2">
+  <button class="btn" data-cmd="undo">↩ Annuler <span class="key">Z</span></button>
+  <button class="btn" data-cmd="periode">⟳ Période <span class="key">P</span></button>
+</div>
+<div class="row2">
+  <button class="btn" id="resetSessionBtn">🔄 Reset session <span class="key">R</span></button>
+  <button class="btn danger" id="resetAllBtn">🗑 Tout effacer</button>
+</div>
+
+<div id="log"></div>
+
+<script>
+const TYPES = [
+  {c:'arc', label:'Arc', key:'1'},
+  {c:'carabine', label:'Carabine', key:'2'},
+  {c:'pompe', label:'Fusil à pompe', key:'3'},
+  {c:'pistolet', label:'Pistolet', key:'4'},
+  {c:'melee', label:'Corps à corps', key:'5'},
+  {c:'explosif', label:'Explosifs', key:'6'},
+  {c:'boss', label:'Boss tué', key:'7'},
+  {c:'extract', label:'Extraction', key:'8'},
+];
+
+const grid = document.getElementById('grid');
+grid.innerHTML = TYPES.map(t=>`<button class="btn" data-cmd="${t.c}">${t.label} <span class="key">${t.key}</span></button>`).join('');
+
+function getConfig(){ try{ return JSON.parse(localStorage.getItem('huntctrl_config'))||{}; }catch(e){ return {}; } }
+function saveConfig(c){ localStorage.setItem('huntctrl_config', JSON.stringify(c)); }
+
+const cfg = getConfig();
+document.getElementById('cfgChannel').value = cfg.channel||'';
+document.getElementById('cfgUsername').value = cfg.username||'';
+document.getElementById('cfgToken').value = cfg.token||'';
+
+function setStatus(text, ok){
+  document.getElementById('statustext').textContent = text;
+  document.getElementById('status').classList.toggle('ok', !!ok);
+}
+function log(text){
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.textContent = new Date().toLocaleTimeString('fr-FR')+' — '+text;
+  el.prepend(line);
+}
+
+let ws, ready=false;
+function connect(){
+  const c = getConfig();
+  if(!c.channel || !c.username || !c.token){ setStatus('non configuré', false); return; }
+  setStatus('connexion…', false);
+  ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+  ws.onopen = () => {
+    const token = c.token.startsWith('oauth:') ? c.token : 'oauth:'+c.token;
+    ws.send('PASS '+token);
+    ws.send('NICK '+c.username.toLowerCase());
+    ws.send('JOIN #'+c.channel.toLowerCase());
+  };
+  ws.onmessage = (evt) => {
+    evt.data.split('\r\n').filter(Boolean).forEach(line=>{
+      if(line.startsWith('PING')){ ws.send('PONG :tmi.twitch.tv'); return; }
+      if(/ 001 /.test(line)){ ready=true; setStatus('connecté à #'+c.channel, true); }
+      if(/NOTICE/.test(line) && /authentication failed/i.test(line)){ ready=false; setStatus('token invalide', false); }
+    });
+  };
+  ws.onclose = () => { ready=false; setStatus('déconnecté, nouvelle tentative…', false); setTimeout(connect, 3000); };
+  ws.onerror = () => { ws.close(); };
+}
+
+function send(cmd){
+  const c = getConfig();
+  if(!ready){ log('pas connecté — impossible d\'envoyer !'+cmd); return; }
+  ws.send('PRIVMSG #'+c.channel.toLowerCase()+' :!'+cmd);
+  log('envoyé !'+cmd);
+}
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  saveConfig({
+    channel: document.getElementById('cfgChannel').value.trim().toLowerCase(),
+    username: document.getElementById('cfgUsername').value.trim().toLowerCase(),
+    token: document.getElementById('cfgToken').value.trim(),
+  });
+  connect();
+});
+
+document.querySelectorAll('.btn[data-cmd]').forEach(b=>{
+  b.addEventListener('click', ()=> send(b.dataset.cmd));
+});
+document.getElementById('resetSessionBtn').addEventListener('click', ()=>{
+  if(confirm('Réinitialiser la session en cours ?')) send('resetsession');
+});
+document.getElementById('resetAllBtn').addEventListener('click', ()=>{
+  if(confirm('Tout effacer (y compris semaine / mois / all-time) ? Irréversible.')) send('resetall');
+});
+
+const KEYMAP = {'1':'arc','2':'carabine','3':'pompe','4':'pistolet','5':'melee','6':'explosif','7':'boss','8':'extract','z':'undo','p':'periode'};
+document.addEventListener('keydown', (e)=>{
+  if(e.target.tagName==='INPUT') return;
+  const k = e.key.toLowerCase();
+  if(k==='r'){ if(confirm('Réinitialiser la session en cours ?')) send('resetsession'); return; }
+  if(KEYMAP[k]) send(KEYMAP[k]);
+});
+
+connect();
+</script>
+</body>
+</html>
